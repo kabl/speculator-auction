@@ -2,6 +2,16 @@
 
 Requirements and functionality documented in separate documentation.
 
+## Missing Features
+
+Following features are not yet implemented:
+- Auction time check. Auction can be ended after 24 hours
+- Pay out delay of 30 days
+- Pay out option. Currency selection is currently ignored
+- User sign up has to be implemented
+- Revenue withdrawn end of the year for the contract owner
+- Shutdown for the auction
+
 ## Prerequisite
 
 Versions
