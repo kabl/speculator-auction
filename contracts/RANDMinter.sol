@@ -4,7 +4,6 @@ pragma solidity 0.6.12;
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract RANDMinter is Ownable {
-
     mapping(address => bool) private minters;
 
     constructor() public {
