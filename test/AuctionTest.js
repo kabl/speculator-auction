@@ -64,5 +64,12 @@ contract("AuctionTest", accounts => {
 
     var randBalancerUser2 = await token.balanceOf(user2);
     assert.equal(randBalancerUser2.toString(), data.podTokens.toString());
+
+    // check that the contract has no more assets after the Auction
+    var contractEtherBalance = await web3.eth.getBalance(auction.address);
+    assert.equal(contractEtherBalance.toString(), "0");
+
+    var contractTokenBalance = await token.balanceOf(auction.address);
+    assert.equal(contractTokenBalance.toString(), "0");
   });
 });

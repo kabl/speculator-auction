@@ -5,9 +5,9 @@ import "./IERC20Mintable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Auction is Ownable {
-    IERC20Mintable public token;
+    IERC20Mintable public _token;
 
-    enum PayOutCurrency {ETH, RAND}
+    enum PayOutCurrency {ETH, ERC20}
 
     struct BidderInfo {
         uint256 bidInWei;
@@ -26,17 +26,23 @@ contract Auction is Ownable {
         bool roundEnded;
     }
 
-    uint256 round = 0;
-    mapping(uint256 => BidData) private bidDataMap;
+    uint256 private _currentRound = 0;
 
-    // round->bidder->info
-    mapping(uint256 => mapping(address => BidderInfo)) private bidderInfoMapMap;
+    // round->BidData
+    mapping(uint256 => BidData) private _bidDataMap;
 
-    event NewBid(address bidder, uint256 amount);
+    // round->bidder->BidderInfo
+    mapping(uint256 => mapping(address => BidderInfo))
+        private _bidderInfoMapMap;
+
+    event AuctionStarted(uint256 round);
+    event AuctionEnded(uint256 round);
+    event NewBidPlaced(address bidder, uint256 amount);
     event HighestBidIncreased(address bidder, uint256 amount);
+    event PayedOut(address bidder, uint256 amount, PayOutCurrency currency);
 
     constructor(address tokenAddress) public {
-        token = IERC20Mintable(tokenAddress);
+        _token = IERC20Mintable(tokenAddress);
     }
 
     function startAuction() public onlyOwner returns (bool) {
@@ -47,35 +53,37 @@ contract Auction is Ownable {
         bidData.podTokens = pseudoRandom();
         bidData.startDate = block.timestamp;
 
-        uint256 ownTokens1 = token.balanceOf(address(this));
-        token.mint(address(this), bidData.podTokens);
+        uint256 ownTokens1 = _token.balanceOf(address(this));
+        _token.mint(address(this), bidData.podTokens);
 
         // Security check. Make sure the right amount of tokens is minted
-        uint256 ownTokens2 = token.balanceOf(address(this));
+        uint256 ownTokens2 = _token.balanceOf(address(this));
         uint256 diff = ownTokens2 - ownTokens1;
         require(diff == bidData.podTokens, "Minting bug!");
 
-        bidDataMap[round] = bidData;
+        _bidDataMap[_currentRound] = bidData;
 
+        emit AuctionStarted(_currentRound);
         return true;
     }
 
     function endAuction() public returns (bool) {
-        BidData storage bidData = bidDataMap[round];
+        BidData storage bidData = _bidDataMap[_currentRound];
         require(bidData.roundEnded == false, "Already ended");
         // todo: Require check end auction allowed after 24 hours.
 
         bidData.roundEnded = true;
-        round = round + 1;
+        emit AuctionEnded(_currentRound);
+        _currentRound = _currentRound + 1;
     }
 
     function bid(PayOutCurrency payOutCurrency) public payable returns (bool) {
-        BidData storage bidData = bidDataMap[round];
+        BidData storage bidData = _bidDataMap[_currentRound];
 
         require(bidData.numberOfBidders < 1000, "Too many bidders");
         require(msg.value >= 100 szabo, "Minimum value required"); // 0.1 Ether
         require(
-            bidderInfoMapMap[round][msg.sender].bidInWei == 0,
+            _bidderInfoMapMap[_currentRound][msg.sender].bidInWei == 0,
             "Only one Bid per address allowed"
         );
 
@@ -83,12 +91,12 @@ contract Auction is Ownable {
         bidderInfo.bidInWei = msg.value;
         bidderInfo.payOutCurrency = payOutCurrency;
         bidderInfo.payedOut = false;
-        bidderInfoMapMap[round][msg.sender] = bidderInfo;
+        _bidderInfoMapMap[_currentRound][msg.sender] = bidderInfo;
 
         bidData.podWeis = bidData.podWeis + msg.value; //todo: use SafeMath
         bidData.numberOfBidders = bidData.numberOfBidders + 1;
 
-        emit NewBid(msg.sender, msg.value);
+        emit NewBidPlaced(msg.sender, msg.value);
 
         if (msg.value > bidData.highestBid) {
             bidData.highestBid = msg.value;
@@ -97,13 +105,13 @@ contract Auction is Ownable {
         }
     }
 
-    function payOut(uint256 payOutRound, address payable bidder)
+    function payOut(uint256 round, address payable bidder)
         public
         payable
         returns (bool)
     {
-        BidData storage bidData = bidDataMap[payOutRound];
-        BidderInfo storage bidderInfo = bidderInfoMapMap[payOutRound][bidder];
+        BidData storage bidData = _bidDataMap[round];
+        BidderInfo storage bidderInfo = _bidderInfoMapMap[round][bidder];
 
         require(bidData.roundEnded == true, "Round not ended");
         require(bidderInfo.bidInWei > 0, "Unknown bidder");
@@ -113,11 +121,14 @@ contract Auction is Ownable {
         bidderInfo.payedOut = true;
 
         if (bidder == bidData.highestBidder) {
-            token.transfer(bidder, bidData.podTokens);
+            _token.transfer(bidder, bidData.podTokens); //
+            address(0x0).transfer(bidderInfo.bidInWei); // burn the ETH
             bidderInfo.payedOutAmount = bidData.podTokens;
+            emit PayedOut(bidder, bidData.podTokens, PayOutCurrency.ERC20);
         } else {
-            bidder.transfer(bidderInfo.bidInWei);
+            bidder.transfer(bidderInfo.bidInWei); // Refund
             bidderInfo.payedOutAmount = bidderInfo.bidInWei;
+            emit PayedOut(bidder, bidderInfo.bidInWei, PayOutCurrency.ETH);
         }
     }
 
@@ -131,7 +142,7 @@ contract Auction is Ownable {
             );
     }
 
-    function getAuctionData(uint256 auctionRound)
+    function getAuctionData(uint256 round)
         public
         view
         returns (
@@ -144,9 +155,9 @@ contract Auction is Ownable {
             uint256 numberOfBidders
         )
     {
-        require(auctionRound <= round, "Invalid round");
+        require(round <= _currentRound, "Invalid round");
 
-        BidData memory bidData = bidDataMap[auctionRound];
+        BidData memory bidData = _bidDataMap[round];
 
         podTokens = bidData.podTokens;
         startDate = bidData.startDate;
@@ -157,7 +168,7 @@ contract Auction is Ownable {
         numberOfBidders = bidData.numberOfBidders;
     }
 
-    function getBidderInfo(uint256 auctionRound, address bidder)
+    function getBidderInfo(uint256 round, address bidder)
         public
         view
         returns (
@@ -167,9 +178,9 @@ contract Auction is Ownable {
             bool payedOut
         )
     {
-        require(auctionRound <= round, "Invalid round");
+        require(round <= _currentRound, "Invalid round");
 
-        BidderInfo memory bidderInfo = bidderInfoMapMap[auctionRound][bidder];
+        BidderInfo memory bidderInfo = _bidderInfoMapMap[round][bidder];
         require(bidderInfo.bidInWei > 0, "Invalid Bidder");
 
         bidInWei = bidderInfo.bidInWei;
