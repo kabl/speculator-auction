@@ -19,21 +19,21 @@ contract("AuctionTest", accounts => {
 
 
     await auction.startAuction({ from: owner });
-    var data = await auction.auctionData(0);
+    var data = await auction.getAuctionData(0);
     var totalSupply = await token.totalSupply();
 
     assert.equal(data.podTokens.toString(), totalSupply.toString());
-    assert.equal(data.payedOut, false);
+  //  assert.equal(data.payedOut, false);
     assert.equal(data.roundEnded, false);
     assert.equal(data.numberOfBidders.toString(), "0");
 
     var weis = web3.utils.toWei("2","ether");
-    var result = await auction.bid({from: user1, value: weis});
+    var result = await auction.bid(0, {from: user1, value: weis});
 
     weis = web3.utils.toWei("2.2","ether");
-    var result = await auction.bid({from: user2, value: weis});    
+    var result = await auction.bid(0, {from: user2, value: weis});    
 
-    data = await auction.auctionData(0);
+    data = await auction.getAuctionData(0);
     assert.equal(data.numberOfBidders.toString(), "2");
     assert.equal(data.podWeis.toString(), web3.utils.toWei("4.2","ether").toString());
     assert.equal(data.highestBidder, user2);

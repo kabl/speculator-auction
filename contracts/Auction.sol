@@ -7,18 +7,20 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract Auction is Ownable {
     IERC20Mintable public token;
 
-    enum PayOutCurrency { ETH, RAND };
+    enum PayOutCurrency {ETH, RAND}
+
     struct BidderInfo {
         uint256 bidInWei;
-        PayOutCurrency payOutCurrency; 
+        uint256 payedOutAmount;
+        PayOutCurrency payOutCurrency;
+        bool payedOut;
+         
     }
 
     struct BidData {
         uint256 podTokens;
         uint256 startDate;
-        mapping(address => uint256) bidderMap; //uint256 represents the Wei the user commited
-        mapping(address => bool) payedOutMap;
-        address[] bidderArray;
+        uint256 numberOfBidders;
         uint256 podWeis;
         address highestBidder;
         uint256 highestBid;
@@ -27,29 +29,31 @@ contract Auction is Ownable {
 
     uint256 round = 0;
     mapping(uint256 => BidData) private bidDataMap;
-    mapping(uint256 => BidderInfo) private bidderInfoMap;
+    mapping(uint256 => mapping(address => BidderInfo)) private bidderInfoMapMap;
 
-
+    event NewBid(address bidder, uint256 amount);
     event HighestBidIncreased(address bidder, uint256 amount);
 
     constructor(address tokenAddress) public {
         token = IERC20Mintable(tokenAddress);
     }
 
-    function bid() public payable returns (bool) {
-        BidData storage bidData = bidRounds[round];
+    function bid(PayOutCurrency payOutCurrency) public payable returns (bool) {
+        BidData storage bidData = bidDataMap[round];
+        BidderInfo storage bidderInfo = bidderInfoMapMap[round][msg.sender];
 
+        require(bidData.numberOfBidders < 1000, "Too many bidders");
         require(msg.value >= 100 szabo, "Minimum value required"); // 0.1 Ether
-        require(
-            bidData.bidderMap[msg.sender] == 0,
-            "Only one Bid per address allowed"
-        );
+        require(bidderInfo.bidInWei == 0, "Only one Bid per address allowed");
 
-        bidData.bidderMap[msg.sender] = msg.value;
-        bidData.bidderArray.push(msg.sender);
+        bidderInfo.bidInWei = msg.value;
+        bidderInfo.payOutCurrency = payOutCurrency;
+        bidderInfo.payedOut = false;
 
-        //todo use SafeMath
-        bidData.podWeis = bidData.podWeis + msg.value;
+        bidData.podWeis = bidData.podWeis + msg.value; //todo: use SafeMath
+        bidData.numberOfBidders = bidData.numberOfBidders + 1;
+
+        emit NewBid(msg.sender, msg.value);
 
         if (msg.value > bidData.highestBid) {
             bidData.highestBid = msg.value;
@@ -63,22 +67,29 @@ contract Auction is Ownable {
         payable
         returns (bool)
     {
-        BidData storage bidData = bidRounds[payOutRound];
-        require(bidData.roundEnded == true, "Round not ended");
-        require(bidData.bidderMap[bidder] > 0, "Unknown bidder");
-        require(bidData.payedOutMap[bidder] == false, "Already payed out");
-        // todo: require 30 days wait time
+        BidData storage bidData = bidDataMap[payOutRound];
+        BidderInfo storage bidderInfo = bidderInfoMapMap[payOutRound][bidder];
 
-        uint256 amountWei = bidData.bidderMap[bidder];
+        require(bidData.roundEnded == true, "Round not ended");
+        require(bidderInfo.bidInWei > 0, "Unknown bidder");
+        require(bidderInfo.payedOut == false, "Already payed out");
+        // todo: impl. require check: 30 days wait time
+
+        bidderInfo.payedOut = true;
 
         if (bidder == bidData.highestBidder) {
             token.transfer(bidder, bidData.podTokens);
+            bidderInfo.payedOutAmount = bidData.podTokens;
+        } else {
+            bidder.transfer(bidderInfo.bidInWei);
+            bidderInfo.payedOutAmount = bidderInfo.bidInWei;
         }
-
-        bidder.transfer(amountWei);
     }
 
     function startAuction() public onlyOwner returns (bool) {
+        //todo: Require check start is only allowed when current bid ended
+        //todo: Require check start is only allowed after 24hours after last bid
+
         BidData memory bidData;
         bidData.podTokens = pseudoRandom();
         bidData.startDate = block.timestamp;
@@ -86,20 +97,20 @@ contract Auction is Ownable {
         uint256 ownTokens1 = token.balanceOf(address(this));
         token.mint(address(this), bidData.podTokens);
 
-        // Security check
+        // Security check. Make sure the right amount of tokens is minted
         uint256 ownTokens2 = token.balanceOf(address(this));
         uint256 diff = ownTokens2 - ownTokens1;
         require(diff == bidData.podTokens, "Minting bug!");
 
-        bidRounds[round] = bidData;
+        bidDataMap[round] = bidData;
 
         return true;
     }
 
     function endAuction() public returns (bool) {
-        BidData storage bidData = bidRounds[round];
+        BidData storage bidData = bidDataMap[round];
         require(bidData.roundEnded == false, "Already ended");
-        // todo: check 24 hours
+        // todo: Require check end auction allowed after 24 hours.
 
         bidData.roundEnded = true;
         round = round + 1;
@@ -115,7 +126,7 @@ contract Auction is Ownable {
             );
     }
 
-    function auctionData(uint256 auctionRound)
+    function getAuctionData(uint256 auctionRound)
         public
         view
         returns (
@@ -128,7 +139,9 @@ contract Auction is Ownable {
             uint256 numberOfBidders
         )
     {
-        BidData memory bidData = bidRounds[auctionRound];
+        require(auctionRound <= round, "Invalid round");
+
+        BidData memory bidData = bidDataMap[auctionRound];
 
         podTokens = bidData.podTokens;
         startDate = bidData.startDate;
@@ -136,6 +149,27 @@ contract Auction is Ownable {
         highestBidder = bidData.highestBidder;
         highestBid = bidData.highestBid;
         roundEnded = bidData.roundEnded;
-        numberOfBidders = bidData.bidderArray.length;
+        numberOfBidders = bidData.numberOfBidders;
+    }
+
+    function getBidderInfo(uint256 auctionRound, address bidder)
+        public
+        view
+        returns (
+            uint256 bidInWei,
+            uint256 payedOutAmount,
+            PayOutCurrency payOutCurrency,
+            bool payedOut
+        )
+    {
+        require(auctionRound <= round, "Invalid round");
+
+        BidderInfo memory bidderInfo = bidderInfoMapMap[round][bidder];
+        require(bidderInfo.bidInWei > 0, "Invalid Bidder");
+
+        bidInWei = bidderInfo.bidInWei;
+        payedOutAmount = bidderInfo.payedOutAmount;
+        payOutCurrency = bidderInfo.payOutCurrency;
+        payedOut = bidderInfo.payedOut;
     }
 }
