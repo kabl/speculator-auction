@@ -26,7 +26,7 @@
 
 module.exports = {
 
-  plugins: ["truffle-security"],
+  plugins: ["truffle-security", "solidity-coverage"],
 
   networks: {
     development: {

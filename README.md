@@ -35,4 +35,12 @@ npm run ganache
 
 # Terminal2 
 truffle test
+
+# Other commands
+## Test coverage
+npm run coverage
+
+## Linting / Prettier
+npm run lint
+npm run prettier
 ```

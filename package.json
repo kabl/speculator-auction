@@ -7,7 +7,7 @@
     "build": "truffle compile",
     "lint": "solhint \"contracts/*.sol\"",
     "prettier": "prettier --write **/*.sol",
-    "coverage": "solidity-coverage",
+    "coverage": "truffle run coverage",
     "ganache": "ganache-cli -m \"pilot regular prize ridge spy reduce boil trick cigar maple million wall\"",
     "flat": "truffle-flattener ./contracts/RANDToken.sol > ./RANDTokenFlat.sol"
   },
