@@ -2,6 +2,10 @@
 
 Requirements and functionality documented in separate documentation.
 
+Overview
+
+![Class diagram](/auction-contract.png)
+
 ## Missing Features
 
 Following features are not yet implemented:
