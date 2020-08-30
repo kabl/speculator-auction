@@ -188,4 +188,8 @@ contract Auction is Ownable {
         payOutCurrency = bidderInfo.payOutCurrency;
         payedOut = bidderInfo.payedOut;
     }
+
+    function getCurrentRound() public view returns (uint256) {
+        return _currentRound;
+    }
 }

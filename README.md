@@ -45,17 +45,19 @@ npm run lint
 npm run prettier
 ```
 
+Hint: Coverage produced failed tests. When using the 'development' network then coverage is running as expected. A network with a port different from 8545 seems to be failing. To run `npm run coverage` stop the `ganache` process firstly. 
+
 **Current Coverage**
 ```
 ---------------------|----------|----------|----------|----------|----------------|
 File                 |  % Stmts | % Branch |  % Funcs |  % Lines |Uncovered Lines |
 ---------------------|----------|----------|----------|----------|----------------|
- contracts/          |    98.44 |    53.57 |    92.86 |    98.46 |                |
-  Auction.sol        |      100 |    53.85 |      100 |      100 |                |
+ contracts/          |    97.14 |    53.57 |    86.67 |    97.18 |                |
+  Auction.sol        |    98.46 |    53.85 |    88.89 |    98.46 |            193 |
   IERC20Mintable.sol |      100 |      100 |      100 |      100 |                |
   RANDMinter.sol     |       75 |       50 |       75 |       80 |             18 |
   RANDToken.sol      |      100 |      100 |      100 |      100 |                |
 ---------------------|----------|----------|----------|----------|----------------|
-All files            |    98.44 |    53.57 |    92.86 |    98.46 |                |
+All files            |    97.14 |    53.57 |    86.67 |    97.18 |                |
 ---------------------|----------|----------|----------|----------|----------------|
 ```
