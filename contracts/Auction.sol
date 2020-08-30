@@ -2,10 +2,15 @@
 pragma solidity 0.6.12;
 
 import "./IERC20Mintable.sol";
+import "./PriceFeedStub.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Auction is Ownable {
+    address payable public BURN_ADDR = payable(
+        address(0x000000000000000000000000000000000000dEaD)
+    );
     IERC20Mintable public _token;
+    PriceFeedStub private _priceFeed = new PriceFeedStub();
 
     enum PayOutCurrency {ETH, ERC20}
 
@@ -121,14 +126,33 @@ contract Auction is Ownable {
         bidderInfo.payedOut = true;
 
         if (bidder == bidData.highestBidder) {
-            _token.transfer(bidder, bidData.podTokens); //
-            address(0x0).transfer(bidderInfo.bidInWei); // burn the ETH
+            _token.transfer(bidder, bidData.podTokens); // send the Pod to the winner
+            BURN_ADDR.transfer(bidderInfo.bidInWei); // burn the ETH
             bidderInfo.payedOutAmount = bidData.podTokens;
-            emit PayedOut(bidder, bidData.podTokens, PayOutCurrency.ERC20);
+            bidderInfo.payOutCurrency = PayOutCurrency.ERC20; // Winner only get tokens
+            emit PayedOut(bidder, bidData.podTokens, bidderInfo.payOutCurrency);
         } else {
-            bidder.transfer(bidderInfo.bidInWei); // Refund
-            bidderInfo.payedOutAmount = bidderInfo.bidInWei;
-            emit PayedOut(bidder, bidderInfo.bidInWei, PayOutCurrency.ETH);
+            if (bidderInfo.payOutCurrency == PayOutCurrency.ETH) {
+                bidder.transfer(bidderInfo.bidInWei); // Refund
+                bidderInfo.payedOutAmount = bidderInfo.bidInWei;
+                emit PayedOut(
+                    bidder,
+                    bidderInfo.bidInWei,
+                    bidderInfo.payOutCurrency
+                );
+            } else {
+                bidderInfo.payedOutAmount = _priceFeed.ethToRand(
+                    bidderInfo.bidInWei
+                );
+                _token.mint(address(this), bidderInfo.payedOutAmount); // could also mint to the bidder.
+                BURN_ADDR.transfer(bidderInfo.bidInWei); // burn the ETH
+                _token.transfer(bidder, bidderInfo.payedOutAmount);
+                emit PayedOut(
+                    bidder,
+                    bidderInfo.bidInWei,
+                    bidderInfo.payOutCurrency
+                );
+            }
         }
     }
 

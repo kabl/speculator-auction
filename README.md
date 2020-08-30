@@ -7,9 +7,8 @@ Requirements and functionality documented in separate documentation.
 Following features are not yet implemented:
 - Auction time check. Auction can be ended after 24 hours
 - Pay out delay of 30 days
-- Pay out option. Currency selection is currently ignored
 - User sign up has to be implemented
-- Revenue withdrawn end of the year for the contract owner
+- Revenue withdrawn end of the year for the contract owner. At the moment no revenue remains in the contract. After an auction all funds are distributed to the bidders and the winner.
 - Shutdown for the auction
 
 ## Prerequisite
@@ -52,12 +51,13 @@ Hint: Coverage produced failed tests. When using the 'development' network then 
 ---------------------|----------|----------|----------|----------|----------------|
 File                 |  % Stmts | % Branch |  % Funcs |  % Lines |Uncovered Lines |
 ---------------------|----------|----------|----------|----------|----------------|
- contracts/          |    97.14 |    53.57 |    86.67 |    97.18 |                |
-  Auction.sol        |    98.46 |    53.85 |    88.89 |    98.46 |            193 |
+ contracts/          |    97.44 |       60 |     87.5 |    97.47 |                |
+  Auction.sol        |    98.61 |    60.71 |    88.89 |    98.61 |            214 |
   IERC20Mintable.sol |      100 |      100 |      100 |      100 |                |
+  PriceFeedStub.sol  |      100 |      100 |      100 |      100 |                |
   RANDMinter.sol     |       75 |       50 |       75 |       80 |             18 |
   RANDToken.sol      |      100 |      100 |      100 |      100 |                |
 ---------------------|----------|----------|----------|----------|----------------|
-All files            |    97.14 |    53.57 |    86.67 |    97.18 |                |
+All files            |    97.44 |       60 |     87.5 |    97.47 |                |
 ---------------------|----------|----------|----------|----------|----------------|
 ```
