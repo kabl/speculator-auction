@@ -6,7 +6,7 @@ import "./PriceFeedStub.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Auction is Ownable {
-    address payable public BURN_ADDR = payable(
+    address payable public constant BURN_ADDR = payable(
         address(0x000000000000000000000000000000000000dEaD)
     );
     IERC20Mintable public _token;
@@ -135,11 +135,6 @@ contract Auction is Ownable {
             if (bidderInfo.payOutCurrency == PayOutCurrency.ETH) {
                 bidder.transfer(bidderInfo.bidInWei); // Refund
                 bidderInfo.payedOutAmount = bidderInfo.bidInWei;
-                emit PayedOut(
-                    bidder,
-                    bidderInfo.bidInWei,
-                    bidderInfo.payOutCurrency
-                );
             } else {
                 bidderInfo.payedOutAmount = _priceFeed.ethToRand(
                     bidderInfo.bidInWei
@@ -147,12 +142,13 @@ contract Auction is Ownable {
                 _token.mint(address(this), bidderInfo.payedOutAmount); // could also mint to the bidder.
                 BURN_ADDR.transfer(bidderInfo.bidInWei); // burn the ETH
                 _token.transfer(bidder, bidderInfo.payedOutAmount);
-                emit PayedOut(
-                    bidder,
-                    bidderInfo.bidInWei,
-                    bidderInfo.payOutCurrency
-                );
             }
+
+            emit PayedOut(
+                bidder,
+                bidderInfo.bidInWei,
+                bidderInfo.payOutCurrency
+            );
         }
     }
 

@@ -9,7 +9,7 @@ module.exports = function (deployer, network) {
             console.log("RANDToken Contract: " + instance.address);
 
             const instance2 = await deployer.deploy(Auction, instance.address);
-            console.log("Auction Contract: " + instance.address);
+            console.log("Auction Contract: " + instance2.address);
         } else if (network === "rinkeby") {
             console.error('Not yet implemented');
         } else {
