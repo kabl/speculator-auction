@@ -44,7 +44,14 @@ contract("AuctionTest", accounts => {
 
     await auction.endAuction();
 
+    var user1BalanceBefore = await web3.eth.getBalance(user1);
     result = await auction.payOut(0, user1);
+    var user1BalanceAfter = await web3.eth.getBalance(user1);
+    var BN = web3.utils.BN;
+    console.log(user1BalanceBefore);
+    var user1BalanceExpected = new BN(user1BalanceBefore.toString()).add(new BN(user1Bid.toString()));
+    assert.equal(user1BalanceAfter.toString(), user1BalanceExpected.toString());
+
     console.dir(result);
     result = await auction.payOut(0, user2);
     console.dir(result);
@@ -52,5 +59,10 @@ contract("AuctionTest", accounts => {
     bidderInfo = await auction.getBidderInfo(0, user1);
     assert.equal(bidderInfo.bidInWei.toString(), user1Bid.toString());
 
+    data = await auction.getAuctionData(0);
+    assert.equal(data.highestBidder, user2);
+
+    var randBalancerUser2 = await token.balanceOf(user2);
+    assert.equal(randBalancerUser2.toString(), data.podTokens.toString());
   });
 });
