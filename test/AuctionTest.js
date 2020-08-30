@@ -13,6 +13,10 @@ contract("AuctionTest", accounts => {
 
 
   it("Auction happy path", async function () {
+
+    var user1Bid = web3.utils.toWei("2","ether");
+    var user2Bid = web3.utils.toWei("2.2","ether");
+
     var token = await RND.new();
     var auction = await Auction.new(token.address);
     token.addMinter(auction.address, { from: owner });
@@ -27,17 +31,16 @@ contract("AuctionTest", accounts => {
     assert.equal(data.roundEnded, false);
     assert.equal(data.numberOfBidders.toString(), "0");
 
-    var weis = web3.utils.toWei("2","ether");
-    var result = await auction.bid(0, {from: user1, value: weis});
+    var result = await auction.bid(0, {from: user1, value: user1Bid});
+    var bidderInfo = await auction.getBidderInfo(0, user1);
+    assert.equal(bidderInfo.bidInWei.toString(), user1Bid.toString());
 
-    weis = web3.utils.toWei("2.2","ether");
-    var result = await auction.bid(0, {from: user2, value: weis});    
+    var result = await auction.bid(0, {from: user2, value: user2Bid});    
 
     data = await auction.getAuctionData(0);
     assert.equal(data.numberOfBidders.toString(), "2");
     assert.equal(data.podWeis.toString(), web3.utils.toWei("4.2","ether").toString());
     assert.equal(data.highestBidder, user2);
-    
 
     await auction.endAuction();
 
@@ -45,5 +48,9 @@ contract("AuctionTest", accounts => {
     console.dir(result);
     result = await auction.payOut(0, user2);
     console.dir(result);
+
+    bidderInfo = await auction.getBidderInfo(0, user1);
+    assert.equal(bidderInfo.bidInWei.toString(), user1Bid.toString());
+
   });
 });
